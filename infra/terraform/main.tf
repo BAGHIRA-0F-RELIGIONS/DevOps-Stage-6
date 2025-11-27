@@ -43,7 +43,7 @@ resource "local_file" "ansible_inventory" {
   content  = templatefile("${path.module}/templates/ansible_inventory.tmpl", {
     host_ip = module.ec2.public_ip
     user    = "ubuntu"
-    ssh_key = var.ssh_private_key_path
+    ssh_key = file(var.ssh_private_key_path)
   })
 }
 
@@ -53,7 +53,7 @@ resource "local_file" "ansible_group_vars" {
   content  = jsonencode({
     public_ip = module.ec2.public_ip
     # instance_id = module.ec2.instance_id
-    domain = var.projectname
+    domain = var.domain
   })
 }
 

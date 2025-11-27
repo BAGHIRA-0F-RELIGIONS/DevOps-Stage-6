@@ -5,13 +5,13 @@ resource "aws_instance" "my_ec2" {
   subnet_id              = var.epicbook_pubsub_id
   vpc_security_group_ids = var.pub_sg_id
   associate_public_ip_address = true
-  # user_data              = data.template_file.userdata.rendered
+  user_data              = data.template_file.userdata.rendered
   tags                   = var.tags
 }
 
 resource "aws_key_pair" "local_key" {
   key_name   = "local-key"
-  public_key = var.ssh_private_key_path
+  public_key = file(var.ssh_private_key_path)
 }
 
 

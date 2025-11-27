@@ -17,6 +17,11 @@ variable "ami" {
 }
 
 variable "ssh_private_key_path" {
-  default = "~/.ssh/id_ed25519"
+  description = "private key for ansible connection"
   type = string
+}
+
+variable "domain" {
+  type = string
+  description = "domain for ansible host"
 }

@@ -1,4 +1,6 @@
 aws_region              = "us-east-1" 
-ec2_key_name            = "~/Users/User/Downloads/n-virg"
+ec2_key_name            = "~/.ssh/id_ed25519.pub"
 projectname             = "epicbook"
 ami                     = "ami-0bbdd8c17ed981ef9" 
+domain                  = "hasmo.xyz"
+ssh_private_key_path    = "~/.ssh/id_ed25519"
