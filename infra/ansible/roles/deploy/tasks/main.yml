@@ -44,6 +44,12 @@
     mode: '0600'
   become: yes
 
+- name: setup ssl cert
+  become: true
+  shell: |
+    curl "https://www.duckdns.org/update?domains=todoapp-devops.duckdns.org&token=d19e795d-a839-46ee-9df3-f91e104b6af4&ip={{ ansible_host }}"
+
+
 # # --- Copy .env from repo root to remote host ---
 # - name: Copy .env from repo to remote app directory (keep secrets secure)
 #   ansible.builtin.copy:

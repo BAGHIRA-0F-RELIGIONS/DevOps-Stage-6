@@ -9,9 +9,9 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o auth-api .
 
 FROM gcr.io/distroless/base
-COPY --from=builder /src/auth-api /auth-api
+COPY --from=builder /src/auth-api .
 
 # Matches README default usage
 EXPOSE 8081
 
-CMD ["/auth-api"]
+CMD ["./auth-api"]
