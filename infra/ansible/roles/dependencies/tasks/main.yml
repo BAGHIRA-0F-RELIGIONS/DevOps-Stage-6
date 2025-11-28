@@ -5,64 +5,49 @@
     timeout: 300
     delay: 10
 
-# --- Install essential packages ---
-- name: Install essentials
-  ansible.builtin.apt:
-    name:
-      - git
-      - curl
-      - python3-pip
-      - apt-transport-https
-      - ca-certificates
-      - software-properties-common
-    state: present
-    update_cache: yes
-  become: yes
+- name: Add Docker GPG apt key
+  become: true
+  shell: |
+    sudo apt-get update
+    sudo apt-get install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# --- Install Docker ---
+- name: Add Docker repository
+  become: true
+  shell: |
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+
 - name: Install Docker
-  ansible.builtin.apt:
-    name: docker.io
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
     state: present
     update_cache: yes
-  become: yes
 
-- name: Start and enable Docker service
-  ansible.builtin.systemd:
+- name: Ensure Docker group exists
+  group:
     name: docker
-    state: started
-    enabled: yes
-  become: yes
+    state: present
 
-# --- Add user to Docker group ---
-- name: Add ubuntu user to docker group
-  ansible.builtin.user:
+- name: Add user to docker group
+  user:
     name: ubuntu
     groups: docker
     append: yes
-  become: yes
 
-# --- Install Docker Compose v2 plugin (official CLI plugin) ---
-- name: Create CLI plugin directory
-  ansible.builtin.file:
-    path: /usr/local/lib/docker/cli-plugins
-    state: directory
-    mode: '0755'
-  become: yes
-
-- name: Download Docker Compose v2 plugin binary
-  ansible.builtin.get_url:
-    url: https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64
-    dest: /usr/local/lib/docker/cli-plugins/docker-compose
-    mode: '0755'
-  become: yes
-
-- name: Ensure Docker Compose CLI plugin works
-  ansible.builtin.command: docker compose version
-  register: compose_version
-  ignore_errors: yes
-
-- name: Show Docker Compose CLI plugin version
-  ansible.builtin.debug:
-    var: compose_version.stdout
+- name: Start Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
 

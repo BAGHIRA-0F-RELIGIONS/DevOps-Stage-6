@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # install python and build tools
-RUN npm install
+RUN npm install --no-audit
 
 COPY . .
 EXPOSE 8080

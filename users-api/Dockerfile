@@ -9,8 +9,6 @@ RUN mvn package -DskipTests
 FROM amazoncorretto:8
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar ./app.jar
-
+COPY --from=builder /app/target/*.jar ./users-api.jar
 EXPOSE 8083
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "users-api.jar"]

@@ -32,7 +32,7 @@
     state: directory
     owner: "{{ ansible_user | default('ubuntu') }}"
     group: "{{ ansible_user | default('ubuntu') }}"
-    mode: '0700'
+    mode: '0755'
   become: yes
 
 - name: Ensure acme.json exists with 0600 permissions
@@ -47,41 +47,25 @@
 - name: setup ssl cert
   become: true
   shell: |
-    curl "https://www.duckdns.org/update?domains=todoapp-devops.duckdns.org&token=d19e795d-a839-46ee-9df3-f91e104b6af4&ip={{ ansible_host }}"
+    curl "https://www.duckdns.org/update?domains=hasmo.duckdns.org&token=e0d700ef-4b13-4244-9b54-2601055f0eb0&ip={{ ansible_host }}"
 
-
-# # --- Copy .env from repo root to remote host ---
-# - name: Copy .env from repo to remote app directory (keep secrets secure)
-#   ansible.builtin.copy:
-#     src: "{{ playbook_dir }}/../../.env"
-#     dest: /opt/todo-app/.env
-#     owner: "{{ ansible_user | default('ubuntu') }}"
-#     group: "{{ ansible_user | default('ubuntu') }}"
-#     mode: '0600'
-#     backup: yes
-#   notify: restart docker-compose
-#   become: yes
-
-# # --- Render docker-compose template ---
-# - name: Copy docker-compose template to remote host (rendered)
-#   ansible.builtin.template:
-#     src: docker-compose.yml.j2
-#     dest: /opt/todo-app/docker-compose.yml
-#     owner: "{{ ansible_user | default('ubuntu') }}"
-#     group: "{{ ansible_user | default('ubuntu') }}"
-#     mode: '0644'
-#   vars:
-#     domain: "{{ host_domain | default(domain | default('example.com')) }}"
-#     letsencrypt_email: "{{ letsencrypt_email | default(lookup('env','LETSENCRYPT_EMAIL')) }}"
-#   notify: restart docker-compose
-#   become: yes
 
 # --- Start / update containers idempotently ---
-- name: Ensure Docker Compose services are present and updated (idempotent)
+- name: Bring up services idempotently without hanging
   community.docker.docker_compose_v2:
     project_src: /opt/todo-app
-    build: always            # build local images if Dockerfiles present
-    pull: always             # pull images if specified in compose (helps get latest)
-    state: present         # bring services up
-    recreate: never        # do not force recreation every run; only recreate when needed
+    build: missing      # only build if no image exists
+    pull: missing       # only pull if image not present
+    state: present
+    recreate: smart     # recreate only if compose or Dockerfiles changed
+    # timeout: 120
   become: yes
+  
+
+- name: Start application with Docker Compose
+  become: true
+  shell: |
+    cd /opt/todo-app/ && docker compose up -d
+  args:
+    executable: /bin/bash
+  
