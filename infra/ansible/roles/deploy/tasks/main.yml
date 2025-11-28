@@ -1,33 +1,81 @@
 ---
+# --- NEW: Wait for SSH connection ---
+- name: Wait for SSH connection to be established
+  ansible.builtin.wait_for_connection:
+    timeout: 120
+    delay: 10
+
+# --- Ensure app directory exists ---
 - name: Ensure app directory exists
-  file:
+  ansible.builtin.file:
     path: /opt/todo-app
     state: directory
-    owner: "{{ ansible_user }}"
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    group: "{{ ansible_user | default('ubuntu') }}"
     mode: '0755'
   become: yes
 
+# --- Clone the repository (or pull latest) ---
 - name: Clone repo (or pull latest)
-  git:
+  ansible.builtin.git:
     repo: 'https://github.com/donhasmo/DevOps-Stage-6.git'
     dest: /opt/todo-app
     version: main
-    force: no
+    force: yes
     update: yes
   become: yes
 
-- name: Copy docker-compose (template)
-  template:
-    src: docker-compose.yml.j2
-    dest: /opt/todo-app/docker-compose.yml
-    owner: "{{ ansible_user }}"
-    mode: '0644'
+# --- Ensure Traefik ACME directory and acme.json exist with correct permissions ---
+- name: Ensure Traefik ACME directory exists on host
+  ansible.builtin.file:
+    path: /opt/todo-app/letsencrypt
+    state: directory
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    group: "{{ ansible_user | default('ubuntu') }}"
+    mode: '0700'
   become: yes
 
-- name: Pull images & build changed services
-  community.docker.docker_compose:
+- name: Ensure acme.json exists with 0600 permissions
+  ansible.builtin.file:
+    path: /opt/todo-app/letsencrypt/acme.json
+    state: touch
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    group: "{{ ansible_user | default('ubuntu') }}"
+    mode: '0600'
+  become: yes
+
+# # --- Copy .env from repo root to remote host ---
+# - name: Copy .env from repo to remote app directory (keep secrets secure)
+#   ansible.builtin.copy:
+#     src: "{{ playbook_dir }}/../../.env"
+#     dest: /opt/todo-app/.env
+#     owner: "{{ ansible_user | default('ubuntu') }}"
+#     group: "{{ ansible_user | default('ubuntu') }}"
+#     mode: '0600'
+#     backup: yes
+#   notify: restart docker-compose
+#   become: yes
+
+# # --- Render docker-compose template ---
+# - name: Copy docker-compose template to remote host (rendered)
+#   ansible.builtin.template:
+#     src: docker-compose.yml.j2
+#     dest: /opt/todo-app/docker-compose.yml
+#     owner: "{{ ansible_user | default('ubuntu') }}"
+#     group: "{{ ansible_user | default('ubuntu') }}"
+#     mode: '0644'
+#   vars:
+#     domain: "{{ host_domain | default(domain | default('example.com')) }}"
+#     letsencrypt_email: "{{ letsencrypt_email | default(lookup('env','LETSENCRYPT_EMAIL')) }}"
+#   notify: restart docker-compose
+#   become: yes
+
+# --- Start / update containers idempotently ---
+- name: Ensure Docker Compose services are present and updated (idempotent)
+  community.docker.docker_compose_v2:
     project_src: /opt/todo-app
-    build: yes
-    pull: yes
-    restarted: yes
+    build: always            # build local images if Dockerfiles present
+    pull: always             # pull images if specified in compose (helps get latest)
+    state: present         # bring services up
+    recreate: never        # do not force recreation every run; only recreate when needed
   become: yes

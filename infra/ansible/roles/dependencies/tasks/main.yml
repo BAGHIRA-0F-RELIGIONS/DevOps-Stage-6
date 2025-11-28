@@ -1,54 +1,68 @@
 ---
-- name: update apt cache
-  apt:
+# --- Wait for SSH connection ---
+- name: Wait for SSH connection
+  ansible.builtin.wait_for_connection:
+    timeout: 300
+    delay: 10
+
+# --- Install essential packages ---
+- name: Install essentials
+  ansible.builtin.apt:
+    name:
+      - git
+      - curl
+      - python3-pip
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+    state: present
     update_cache: yes
   become: yes
 
-- name: install prerequisites
-  apt:
-    name:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg
-      - lsb-release
-      - git
+# --- Install Docker ---
+- name: Install Docker
+  ansible.builtin.apt:
+    name: docker.io
     state: present
+    update_cache: yes
   become: yes
 
-- name: add docker GPG key
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes
   become: yes
 
-- name: add docker repo
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
-    state: present
-  become: yes
-
-- name: install docker
-  apt:
-    name: docker-ce
-    state: latest
-  become: yes
-
-- name: install pip for python3
-  apt:
-    name: python3-pip
-    state: present
-  become: yes
-
-- name: install docker-compose (python)
-  pip:
-    name: docker-compose
-    executable: pip3
-  become: yes
-
-- name: ensure deploy user is in docker group
-  user:
-    name: "{{ ansible_user | default('ubuntu') }}"
+# --- Add user to Docker group ---
+- name: Add ubuntu user to docker group
+  ansible.builtin.user:
+    name: ubuntu
     groups: docker
     append: yes
   become: yes
+
+# --- Install Docker Compose v2 plugin (official CLI plugin) ---
+- name: Create CLI plugin directory
+  ansible.builtin.file:
+    path: /usr/local/lib/docker/cli-plugins
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Download Docker Compose v2 plugin binary
+  ansible.builtin.get_url:
+    url: https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64
+    dest: /usr/local/lib/docker/cli-plugins/docker-compose
+    mode: '0755'
+  become: yes
+
+- name: Ensure Docker Compose CLI plugin works
+  ansible.builtin.command: docker compose version
+  register: compose_version
+  ignore_errors: yes
+
+- name: Show Docker Compose CLI plugin version
+  ansible.builtin.debug:
+    var: compose_version.stdout
+

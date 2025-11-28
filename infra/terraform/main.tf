@@ -43,7 +43,7 @@ resource "local_file" "ansible_inventory" {
   content  = templatefile("${path.module}/templates/ansible_inventory.tmpl", {
     host_ip = module.ec2.public_ip
     user    = "ubuntu"
-    ssh_key = file(var.ssh_private_key_path)
+    ssh_key = var.ssh_private_key_path
   })
 }
 
@@ -67,25 +67,26 @@ resource "null_resource" "run_ansible" {
   }
 
   provisioner "local-exec" {
-    # Important: keep commands simple and avoid relying on expansion like ~
-    command = join(" && ", [
-      "echo '[INFO] Running Ansible playbook from Terraform local-exec...'",
-      "cd ${path.module}/../ansible",
-      "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini site.yml"
-    ])
-    # Use a shell compatible with the environment. For Linux-based CI runners this is fine.
-    interpreter = ["bash", "-c"]
-  }
+  command = <<EOT
+    echo '[INFO] Waiting for SSH connection to be ready...'
+    until ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 ubuntu@${module.ec2.public_ip} 'echo ready'; do
+      echo '[INFO] SSH not ready yet, waiting 10s...'
+      sleep 10
+    done
+    echo '[INFO] SSH ready! Running Ansible playbook...'
+    cd ${path.module}/../ansible
+    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini site.yml
+  EOT
 
-  depends_on = [
-    local_file.ansible_inventory,
-    local_file.ansible_group_vars,
-    module.ec2
-  ]
+  interpreter = ["bash", "-c"]
 }
 
-
-
+depends_on = [
+  local_file.ansible_inventory,
+  local_file.ansible_group_vars,
+  module.ec2
+]
+}
 
 
 
